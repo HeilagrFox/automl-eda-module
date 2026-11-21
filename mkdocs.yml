@@ -1,7 +1,8 @@
 site_name: AutoML EDA Module
 site_description: Модуль аналитики, предобработки и визуализации данных в AutoML-системе — обзор, теория и проектирование
 site_author: Бражникова Ольга
-# site_url: https://<username>.github.io/automl-eda-module/
+site_url: !ENV [SITE_URL, 'https://heilagrfox.github.io/automl-eda-module/']
+use_directory_urls: true
 docs_dir: docs
 
 theme:

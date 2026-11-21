@@ -1,0 +1,91 @@
+name: Deploy docs to Helios
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: helios-production
+  cancel-in-progress: false
+
+env:
+  HELIOS_HOST: helios.cs.ifmo.ru
+  HELIOS_PORT: "2222"
+  HELIOS_SITE_SUBDIR: ${{ vars.HELIOS_SITE_SUBDIR || 'automl-eda-module' }}
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.4.0
+        with:
+          enable-cache: true
+
+      - name: Install project dependencies
+        run: uv sync --locked --no-install-project
+
+      - name: Build site
+        env:
+          SITE_URL: "https://se.ifmo.ru/~${{ secrets.HELIOS_USER }}/${{ vars.HELIOS_SITE_SUBDIR || 'automl-eda-module' }}/"
+        run: uv run --no-sync mkdocs build
+
+      - name: Configure SSH
+        env:
+          HELIOS_USER: ${{ secrets.HELIOS_USER }}
+          HELIOS_SSH_PRIVATE_KEY: ${{ secrets.HELIOS_SSH_PRIVATE_KEY }}
+          HELIOS_SSH_KNOWN_HOSTS: ${{ secrets.HELIOS_SSH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          test -n "$HELIOS_USER" || { echo "HELIOS_USER is not configured"; exit 1; }
+          test -n "$HELIOS_SSH_PRIVATE_KEY" || { echo "HELIOS_SSH_PRIVATE_KEY is not configured"; exit 1; }
+          test -n "$HELIOS_SSH_KNOWN_HOSTS" || { echo "HELIOS_SSH_KNOWN_HOSTS is not configured"; exit 1; }
+          if [[ ! "$HELIOS_USER" =~ ^[A-Za-z0-9_][A-Za-z0-9._-]*$ ]]; then
+            echo "HELIOS_USER contains unsupported characters"
+            exit 1
+          fi
+
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$HELIOS_SSH_PRIVATE_KEY" | tr -d '\r' > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$HELIOS_SSH_KNOWN_HOSTS" | tr -d '\r' > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519" "$HOME/.ssh/known_hosts"
+          if ! ssh-keygen -F "[$HELIOS_HOST]:$HELIOS_PORT" -f "$HOME/.ssh/known_hosts" |
+               ssh-keygen -lf - >/dev/null; then
+            echo "::error::HELIOS_SSH_KNOWN_HOSTS must contain a valid known_hosts entry for [$HELIOS_HOST]:$HELIOS_PORT"
+            exit 1
+          fi
+
+      - name: Upload site to Helios
+        env:
+          HELIOS_USER: ${{ secrets.HELIOS_USER }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$HELIOS_SITE_SUBDIR" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
+            echo "HELIOS_SITE_SUBDIR must be a simple directory name"
+            exit 1
+          fi
+
+          ssh -i "$HOME/.ssh/id_ed25519" \
+            -p "$HELIOS_PORT" \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o StrictHostKeyChecking=yes \
+            "$HELIOS_USER@$HELIOS_HOST" \
+            "mkdir -p 'public_html/$HELIOS_SITE_SUBDIR'"
+
+          # --delete only synchronizes this dedicated project subdirectory.
+          rsync -az --delete \
+            -e "ssh -i $HOME/.ssh/id_ed25519 -p $HELIOS_PORT -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile=$HOME/.ssh/known_hosts -o StrictHostKeyChecking=yes" \
+            site/ \
+            "$HELIOS_USER@$HELIOS_HOST:public_html/$HELIOS_SITE_SUBDIR/"
+
+          echo "Published to https://se.ifmo.ru/~$HELIOS_USER/$HELIOS_SITE_SUBDIR/"

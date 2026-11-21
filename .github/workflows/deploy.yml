@@ -28,4 +28,6 @@ jobs:
         run: uv sync --locked --no-install-project
 
       - name: Build and deploy to GitHub Pages
+        env:
+          SITE_URL: https://heilagrfox.github.io/automl-eda-module/
         run: uv run --no-sync mkdocs gh-deploy --force
