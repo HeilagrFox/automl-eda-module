@@ -1,0 +1,58 @@
+site_name: AutoML EDA Module
+site_description: Модуль аналитики, предобработки и визуализации данных в AutoML-системе — обзор, теория и проектирование
+site_author: Бражникова Ольга
+# site_url: https://<username>.github.io/automl-eda-module/
+docs_dir: docs
+
+theme:
+  name: material
+  language: ru
+  features:
+    - navigation.tabs
+    - navigation.top
+    - navigation.footer
+    - content.code.copy
+    - search.highlight
+  palette:
+    - scheme: default
+      toggle:
+        icon: material/weather-night
+        name: Тёмная тема
+    - scheme: slate
+      toggle:
+        icon: material/weather-sunny
+        name: Светлая тема
+
+plugins:
+  - search
+
+markdown_extensions:
+  - tables
+  - admonition
+  - attr_list
+  - md_in_html
+  - pymdownx.details
+  - pymdownx.tabbed:
+      alternate_style: true
+  - toc:
+      permalink: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+nav:
+  - Главная: index.md
+  - Обзор:
+      - Состояние проблемы: state-of-art.md
+      - Сравнение платформ: platforms.md
+  - Теория:
+      - Теоретические основы: theory.md
+      - Пропуски и выбросы: data-quality.md
+      - Визуализация и EDA: visualization.md
+  - Проектирование:
+      - Бизнес-контекст: about.md
+      - Требования: requirements.md
+      - Архитектура и API: architecture.md
+  - Источники: references.md

@@ -1,0 +1,31 @@
+﻿name: Deploy docs
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.4.0
+        with:
+          enable-cache: true
+
+      - name: Install project dependencies
+        run: uv sync --locked --no-install-project
+
+      - name: Build and deploy to GitHub Pages
+        run: uv run --no-sync mkdocs gh-deploy --force
